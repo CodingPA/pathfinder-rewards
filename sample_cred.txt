@@ -1,3 +1,5 @@
 username
 sample_password
 server_ip
+db_name
+

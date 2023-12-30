@@ -9,6 +9,7 @@ def get_credentials():
         username = file.readline().strip()  # Read the first line for username
         password = file.readline().strip()  # Read the second line for password
         db_ip = file.readline().strip()     # Read the third line for server IP
+        db_name = file.readline().strip()   #Read fourth for db name
 
     # Connection configuration
     config = {
@@ -16,7 +17,7 @@ def get_credentials():
         'password': password,
         'host': db_ip,  
         'port': 3306,
-        'database': 'mkuga_pathfinder',
+        'database': db_name,
         'raise_on_warnings': True
     }
 
