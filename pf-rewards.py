@@ -4,7 +4,7 @@ Author: Hyrt
 Contact: GFY
 Created Date: 2023-12-29
 Last Modified: 2023-12-29
-Description: This script connects to a pathfinder DB and calculates weekly rewards for players based on a base payout of 1mil/connection and a weekly max total of 125mil for all players -- these numbers are adjustable.  Used as a reward system for players contributing to Pathfinder.
+Description: This script connects to a pathfinder DB and calculates weekly rewards for players based on a base payout of 1mil/connection and a weekly max total of 125mil for all players -- these numbers are adjustable.  Used as a reward system for players contributing to Pathfinder -- maybe now demo will give me a new title :)
 """
 
 import mysql.connector
