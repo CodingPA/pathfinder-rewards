@@ -1,6 +1,7 @@
 import mysql.connector
 import sys
 import pandas as pd
+from datetime import datetime, timedelta
 
 def get_credentials():
     # Read the credentials and IP from the file
@@ -46,7 +47,6 @@ def fetch_data_to_dataframe(cursor, query):
 
     return df
 
-
 def main():
     print("Starting Script")
 
@@ -61,20 +61,69 @@ def main():
 
     #Do things here
     query = """
-        SELECT *
+        SELECT 
+            activity_log.characterId, 
+            activity_log.year, 
+            activity_log.week, 
+            activity_log.active, 
+            activity_log.mapId, 
+            activity_log.connectionCreate, 
+            `character`.id AS characterId, 
+            `character`.name AS character_name,
+            corporation.name AS corporation_name,
+            corporation.ticker AS corporation_ticker,
+            alliance.name AS alliance_name,
+            alliance.ticker AS alliance_ticker
         FROM activity_log
         LEFT JOIN `character` ON activity_log.characterId = `character`.id
-        LEFT JOIN alliance ON character.allianceId = alliance.id;
+        LEFT JOIN corporation ON `character`.corporationId = corporation.id
+        LEFT JOIN alliance ON `character`.allianceId = alliance.id;
     """
 
     df = fetch_data_to_dataframe(cursor, query)
+
+    #Filter only on main MKUGA map (we should monitor this in case others are using our site)
+    df = df[df['mapId'] == 1]
+
+    # Drop the duplicate id columns from the DataFrame
+    df = df.drop(columns=['characterId'])
+
+    #Add in Week Ending calculated Fields, converts the Year and Week Number to the date the week ends on (Mondays per how pf counts).
+    #Makes it easier to sort, etc
+    df['Week Ending'] = df.apply(lambda row: datetime.strptime("01/02/" + str(row['year']), "%m/%d/%Y") + timedelta(weeks=int(row['week'])-1), axis=1)
+
+    #Create the Weekly Summary Data (sums Connections Created and Active Players)
+    weekly_summary = df.groupby(['year', 'week']).agg(
+        connectionCreated_sum=('connectionCreate', 'sum'),
+        active_sum=('active', 'sum')
+    ).reset_index().rename(columns={'year': 'Year', 'week': 'Week Number'})
+
+    # Calculate total potential payout and amount over cap
+    payout_per_connection = 1_000_000  # 1 million per connection baseline
+    payout_cap = 125_000_000  # 125 million cap per week so 500mil every 4 weeks
+
+    weekly_summary['total_payout'] = weekly_summary['connectionCreated_sum'] * payout_per_connection
+    weekly_summary['amount_over'] = (weekly_summary['total_payout'] - payout_cap).clip(lower=0)
+    
+    # Calculate the payout adjustment multiplier
+    # This will be 1 - (the percentage over cap)
+    # Ensuring that it does not go below 0 and is 1 when not over the cap
+    weekly_summary['payout_adjustment'] = 1 - (weekly_summary['amount_over'] / weekly_summary['total_payout']).clip(upper=1)
+
+    # Ensuring the adjustment doesn't go above 1 when there's no need to adjust
+    weekly_summary['payout_adjustment'] = weekly_summary['payout_adjustment'].clip(lower=0, upper=1)
+
+    # Rename columns for clarity
+    weekly_summary.rename(columns={'year': 'Year', 'week': 'Week Number'}, inplace=True)
     
     # Exporting to Excel with 'All Data' as the sheet name
     print("Exporting All Data")
-    df.to_excel(excel_file_name, sheet_name='All Data', index=False)
-    print(f"Data exported to {excel_file_name} in the sheet named 'All Data'.")
-
-
+    
+    with pd.ExcelWriter(excel_file_name, engine='openpyxl') as writer:
+        df.to_excel(writer, sheet_name='All Data', index=False)
+        weekly_summary.to_excel(writer, sheet_name='Weekly Summary', index=False)
+    
+    print(f"Data exported to {excel_file_name}.")
 
     # Close cursor and connection
     cursor.close()
