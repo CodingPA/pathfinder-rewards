@@ -49,6 +49,7 @@ def fetch_data_to_dataframe(cursor, query):
     return df
 
 def main():
+    start_time = datetime.now()
     print("Starting Script")
 
     # Set the filename variable
@@ -153,6 +154,11 @@ def main():
     # Close cursor and connection
     cursor.close()
     db_connection.close()
+
+    end_time = datetime.now()  # Capture end time
+    runtime = end_time - start_time  # Calculate runtime
+    print(f"Script finished. Total runtime: {runtime.total_seconds()} seconds.")
+    print("Send ISK to Hyrt Oskold :).....")
 
 if __name__=="__main__":
     main()
