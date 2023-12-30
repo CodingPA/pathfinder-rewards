@@ -1,3 +1,12 @@
+"""
+Script Name: Pathfinder Reward Calculator
+Author: Hyrt
+Contact: GFY
+Created Date: 2023-12-29
+Last Modified: 2023-12-29
+Description: This script connects to a pathfinder DB and calculates weekly rewards for players based on a base payout of 1mil/connection and a weekly max total of 125mil for all players -- these numbers are adjustable.  Used as a reward system for players contributing to Pathfinder.
+"""
+
 import mysql.connector
 import sys
 import pandas as pd
@@ -83,6 +92,8 @@ def main():
     """
     df = fetch_data_to_dataframe(cursor, query)
 
+    print("Running Calculations.....")
+
     #Filter only on main MKUGA map (we should monitor this in case others are using our site)
     df = df[df['mapId'] == 1]
 
@@ -142,7 +153,7 @@ def main():
     character_payouts = character_payouts[['character_name', 'connections_sum', 'Week Ending', 'payout_adjustment', 'actual_payout']]
     
     # Exporting to Excel with 'All Data' as the sheet name
-    print("Exporting All Data")
+    print("Exporting Data")
     
     with pd.ExcelWriter(excel_file_name, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='All Data', index=False)
@@ -157,7 +168,7 @@ def main():
 
     end_time = datetime.now()  # Capture end time
     runtime = end_time - start_time  # Calculate runtime
-    print(f"Script finished. Total runtime: {runtime.total_seconds()} seconds.")
+    print(f"Script finished. Total runtime: {round(runtime.total_seconds(), 1)} seconds.")  # Rounded to one decimal place
     print("Send ISK to Hyrt Oskold :).....")
 
 if __name__=="__main__":
