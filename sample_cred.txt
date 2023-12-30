@@ -1,3 +1,3 @@
 username
-password
+sample_password
 server_ip
