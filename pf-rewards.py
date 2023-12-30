@@ -79,7 +79,6 @@ def main():
         LEFT JOIN corporation ON `character`.corporationId = corporation.id
         LEFT JOIN alliance ON `character`.allianceId = alliance.id;
     """
-
     df = fetch_data_to_dataframe(cursor, query)
 
     #Filter only on main MKUGA map (we should monitor this in case others are using our site)
@@ -98,6 +97,10 @@ def main():
         active_sum=('active', 'sum')
     ).reset_index().rename(columns={'year': 'Year', 'week': 'Week Number'})
 
+    # Add 'Week Ending' to weekly_summary
+    weekly_summary['Week Ending'] = weekly_summary.apply(lambda row: datetime.strptime("01/02/" + str(row['Year']), "%m/%d/%Y") + 
+                                                         timedelta(weeks=int(row['Week Number'])-1), axis=1)
+
     # Calculate total potential payout and amount over cap
     payout_per_connection = 1_000_000  # 1 million per connection baseline
     payout_cap = 125_000_000  # 125 million cap per week so 500mil every 4 weeks
@@ -113,8 +116,28 @@ def main():
     # Ensuring the adjustment doesn't go above 1 when there's no need to adjust
     weekly_summary['payout_adjustment'] = weekly_summary['payout_adjustment'].clip(lower=0, upper=1)
 
-    # Rename columns for clarity
+    # Rename columns 
     weekly_summary.rename(columns={'year': 'Year', 'week': 'Week Number'}, inplace=True)
+
+    # Create the 'Payouts' DataFrame
+    # Group by character and week, and sum up the number of connections
+    character_weekly = df.groupby(['character_name', 'year', 'week']).agg(
+        connections_sum=('connectionCreate', 'sum')
+    ).reset_index()
+
+    # Merge with weekly_summary to get the week ending and payout_adjustment
+    character_payouts = pd.merge(
+        character_weekly, 
+        weekly_summary[['Year', 'Week Number', 'Week Ending', 'payout_adjustment']], 
+        left_on=['year', 'week'], 
+        right_on=['Year', 'Week Number']
+    )
+
+    # Calculate the actual payout for each character per week
+    character_payouts['actual_payout'] = character_payouts['connections_sum'] * payout_per_connection * character_payouts['payout_adjustment']
+
+    # Select and rename columns
+    character_payouts = character_payouts[['character_name', 'connections_sum', 'Week Ending', 'payout_adjustment', 'actual_payout']]
     
     # Exporting to Excel with 'All Data' as the sheet name
     print("Exporting All Data")
@@ -122,6 +145,7 @@ def main():
     with pd.ExcelWriter(excel_file_name, engine='openpyxl') as writer:
         df.to_excel(writer, sheet_name='All Data', index=False)
         weekly_summary.to_excel(writer, sheet_name='Weekly Summary', index=False)
+        character_payouts.to_excel(writer, sheet_name='Payouts', index=False)
     
     print(f"Data exported to {excel_file_name}.")
 
